@@ -1,12 +1,28 @@
 import type { UILang, LearningLevel, ChatMessage } from '@/types';
 
 const FEEDBACK_LANG_INSTRUCTION: Record<UILang, string> = {
-  ko: 'tutor_feedback는 반드시 한국어로 작성하세요.',
-  en: 'Write tutor_feedback in English.',
-  ja: 'tutor_feedbackは必ず日本語で書いてください。',
-  zh: 'tutor_feedback必须用中文书写。',
-  th: 'เขียน tutor_feedback เป็นภาษาไทย',
+  ko: 'tutor_feedback는 반드시 순수 한국어(한글)로만 작성하세요. 한자(漢字)나 일본어 가나(かな, カナ)를 절대 사용하지 마세요. 한자어도 반드시 한글로 표기하세요. 예: "料理" → "요리", "自然" → "자연", "勉強" → "공부", "食" → "음식". 영어 표현을 인용할 때만 따옴표 안에 영어를 쓸 수 있습니다.',
+  en: 'Write tutor_feedback in English only. Do not include Korean, Chinese, or Japanese characters.',
+  ja: 'tutor_feedbackは必ず日本語で書いてください。韓国語や中国語の文字は使用しないでください。',
+  zh: 'tutor_feedback必须用中文书写。不要使用韩文或日文假名。',
+  th: 'เขียน tutor_feedback เป็นภาษาไทยเท่านั้น',
 };
+
+const FEWSHOT_EXAMPLES = `
+Examples of CORRECT vs WRONG output:
+
+WRONG (mixed Chinese characters in Korean):
+{ "tutor_feedback": "料理에 관심이 있군요. 自然스럽게 말하면 'I want to cook.'이에요." }
+
+CORRECT (pure Korean only):
+{ "tutor_feedback": "요리에 관심이 있군요. 자연스럽게 말하면 'I want to cook.'이에요." }
+
+WRONG (Korean leaked into English reply):
+{ "conversation_reply": "That sounds 좋아요! What do you want to cook?" }
+
+CORRECT (pure English only):
+{ "conversation_reply": "That sounds great! What do you want to cook?" }
+`;
 
 const LEVEL_INSTRUCTION: Record<LearningLevel, string> = {
   beginner: 'The user is a beginner. Use simple vocabulary and short sentences in conversation_reply.',
@@ -31,6 +47,12 @@ ${FEEDBACK_LANG_INSTRUCTION[uiLang]}
 Your job: have a natural English conversation while gently correcting grammar mistakes.
 
 CRITICAL: You MUST respond with ONLY valid JSON. No text before or after. No markdown code blocks.
+
+LANGUAGE PURITY (extremely important):
+- conversation_reply: English ONLY. No Korean (한글), no Chinese characters (漢字), no Japanese kana (かな/カナ).
+- tutor_feedback: must match the UI language strictly. For Korean UI, use pure 한글 only — never mix in 漢字 or かな even for words of Chinese origin.
+- key_expression.expression and key_expression.example: English ONLY.
+${FEWSHOT_EXAMPLES}
 
 JSON schema:
 {

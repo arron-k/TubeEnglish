@@ -31,11 +31,11 @@ export async function POST(request: NextRequest) {
   const messages = buildMessages(systemPrompt, history.slice(-20), userMessage);
 
   try {
-    const response = await callGroq(messages);
+    const response = await callGroq(messages, uiLang);
     return NextResponse.json(response);
   } catch {
     try {
-      const response = await callGemini(messages);
+      const response = await callGemini(messages, uiLang);
       return NextResponse.json(response);
     } catch {
       return NextResponse.json(

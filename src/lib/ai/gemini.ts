@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { AiTutorResponse } from '@/types';
+import type { AiTutorResponse, UILang } from '@/types';
+import { detectLanguageLeaks, buildLeakRetryNotice } from './languageGuard';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
@@ -48,7 +49,7 @@ async function callWithModel(
     systemInstruction,
     history,
     generationConfig: {
-      temperature: 0.7,
+      temperature: 0.4,
       maxOutputTokens: 512,
       responseMimeType: 'application/json',
     },
@@ -59,7 +60,8 @@ async function callWithModel(
 }
 
 export async function callGemini(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  uiLang: UILang = 'ko',
 ): Promise<AiTutorResponse> {
   const systemInstruction = messages.find((m) => m.role === 'system')?.content ?? '';
   const conversationMessages = messages.filter((m) => m.role !== 'system');
@@ -70,19 +72,44 @@ export async function callGemini(
     parts: [{ text: m.content }],
   }));
 
-  // Use cached model if still valid
+  const runWithGuard = async (modelName: string): Promise<AiTutorResponse> => {
+    const first = await callWithModel(modelName, systemInstruction, history, lastUserMessage);
+    const leaks = detectLanguageLeaks(first, uiLang);
+    if (leaks.length === 0) return first;
+
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[lang-leak] gemini response leaked', leaks);
+    }
+
+    const retryHistory = [
+      ...history,
+      { role: 'user' as const, parts: [{ text: lastUserMessage }] },
+      { role: 'model' as const, parts: [{ text: JSON.stringify(first) }] },
+    ];
+    try {
+      const retry = await callWithModel(
+        modelName,
+        systemInstruction,
+        retryHistory,
+        buildLeakRetryNotice(leaks, uiLang),
+      );
+      return retry;
+    } catch {
+      return first;
+    }
+  };
+
   if (cachedModel && Date.now() < cacheExpiresAt) {
     try {
-      return await callWithModel(cachedModel, systemInstruction, history, lastUserMessage);
+      return await runWithGuard(cachedModel);
     } catch {
       cachedModel = null;
     }
   }
 
-  // Probe models in order until one succeeds
   for (const modelName of CANDIDATE_MODELS) {
     try {
-      const response = await callWithModel(modelName, systemInstruction, history, lastUserMessage);
+      const response = await runWithGuard(modelName);
       cachedModel = modelName;
       cacheExpiresAt = Date.now() + CACHE_TTL_MS;
       return response;

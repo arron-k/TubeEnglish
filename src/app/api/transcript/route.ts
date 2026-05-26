@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { YoutubeTranscript } from 'youtube-transcript';
 import { extractVideoId } from '@/lib/utils/youtubeParser';
 import { groupCaptionsIntoSentences } from '@/lib/utils/captionGrouper';
 
@@ -25,6 +26,16 @@ const MOCK_CAPTIONS: CaptionItem[] = [
   { text: "Practice saying them out loud to build your confidence.", offset: 36500, duration: 3200 },
   { text: "Remember, the key to fluency is consistent practice.", offset: 40200, duration: 3000 },
 ];
+
+async function fetchFromYoutubeTranscript(videoId: string): Promise<CaptionItem[] | null> {
+  const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' });
+  if (!transcript || transcript.length === 0) return null;
+  return transcript.map((item) => ({
+    text: item.text,
+    offset: Math.round(item.offset),
+    duration: Math.round(item.duration),
+  }));
+}
 
 async function fetchFromSupadata(videoId: string): Promise<CaptionItem[] | null> {
   const apiKey = process.env.SUPADATA_API_KEY;
@@ -73,8 +84,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ videoId, captions: cached.data });
   }
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
   try {
-    const raw = await fetchFromSupadata(videoId);
+    const raw = isProduction
+      ? await fetchFromSupadata(videoId)
+      : await fetchFromYoutubeTranscript(videoId);
 
     if (raw && raw.length > 0) {
       const captions = groupCaptionsIntoSentences(raw);
@@ -82,8 +97,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ videoId, captions });
     }
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[transcript] supadata failed:', error);
+    if (!isProduction) {
+      console.error('[transcript] fetch failed:', error);
     }
   }
 

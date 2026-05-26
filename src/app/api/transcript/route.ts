@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { YoutubeTranscript } from 'youtube-transcript';
+import { createClient } from '@supabase/supabase-js';
 import { extractVideoId } from '@/lib/utils/youtubeParser';
 import { groupCaptionsIntoSentences } from '@/lib/utils/captionGrouper';
 
@@ -9,8 +10,7 @@ interface CaptionItem {
   duration: number;
 }
 
-const cache = new Map<string, { data: CaptionItem[]; expiresAt: number }>();
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_TTL_DAYS = 7;
 
 const MOCK_CAPTIONS: CaptionItem[] = [
   { text: "Welcome to this lesson on English conversation.", offset: 1000, duration: 3000 },
@@ -26,6 +26,37 @@ const MOCK_CAPTIONS: CaptionItem[] = [
   { text: "Practice saying them out loud to build your confidence.", offset: 36500, duration: 3200 },
   { text: "Remember, the key to fluency is consistent practice.", offset: 40200, duration: 3000 },
 ];
+
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
+
+async function getFromDbCache(videoId: string): Promise<CaptionItem[] | null> {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from('transcript_cache')
+    .select('captions')
+    .eq('video_id', videoId)
+    .gt('expires_at', new Date().toISOString())
+    .single();
+
+  return data?.captions ?? null;
+}
+
+async function saveToDbCache(videoId: string, captions: CaptionItem[]) {
+  const supabase = getSupabaseAdmin();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + CACHE_TTL_DAYS);
+
+  await supabase.from('transcript_cache').upsert({
+    video_id: videoId,
+    captions,
+    expires_at: expiresAt.toISOString(),
+  });
+}
 
 async function fetchFromYoutubeTranscript(videoId: string): Promise<CaptionItem[] | null> {
   const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' });
@@ -79,12 +110,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const cached = cache.get(videoId);
-  if (cached && cached.expiresAt > Date.now()) {
-    return NextResponse.json({ videoId, captions: cached.data });
-  }
-
   const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction) {
+    const dbCached = await getFromDbCache(videoId);
+    if (dbCached) {
+      return NextResponse.json({ videoId, captions: dbCached });
+    }
+  }
 
   try {
     const raw = isProduction
@@ -93,7 +126,9 @@ export async function GET(request: NextRequest) {
 
     if (raw && raw.length > 0) {
       const captions = groupCaptionsIntoSentences(raw);
-      cache.set(videoId, { data: captions, expiresAt: Date.now() + CACHE_TTL_MS });
+      if (isProduction) {
+        await saveToDbCache(videoId, captions);
+      }
       return NextResponse.json({ videoId, captions });
     }
   } catch (error) {
@@ -103,6 +138,5 @@ export async function GET(request: NextRequest) {
   }
 
   const mockGrouped = groupCaptionsIntoSentences(MOCK_CAPTIONS);
-  cache.set(videoId, { data: mockGrouped, expiresAt: Date.now() + CACHE_TTL_MS });
   return NextResponse.json({ videoId, captions: mockGrouped });
 }

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { YoutubeTranscript } from 'youtube-transcript';
 import { extractVideoId } from '@/lib/utils/youtubeParser';
 import { groupCaptionsIntoSentences } from '@/lib/utils/captionGrouper';
 
@@ -27,6 +26,28 @@ const MOCK_CAPTIONS: CaptionItem[] = [
   { text: "Remember, the key to fluency is consistent practice.", offset: 40200, duration: 3000 },
 ];
 
+async function fetchFromSupadata(videoId: string): Promise<CaptionItem[] | null> {
+  const apiKey = process.env.SUPADATA_API_KEY;
+  if (!apiKey) return null;
+
+  const res = await fetch(
+    `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}&lang=en`,
+    { headers: { 'x-api-key': apiKey } }
+  );
+
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const content = data?.content;
+  if (!Array.isArray(content) || content.length === 0) return null;
+
+  return content.map((item: { text: string; offset: number; duration: number }) => ({
+    text: item.text,
+    offset: Math.round(item.offset),
+    duration: Math.round(item.duration),
+  }));
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const videoUrl = searchParams.get('videoUrl');
@@ -53,34 +74,20 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' });
+    const raw = await fetchFromSupadata(videoId);
 
-    if (!transcript || transcript.length === 0) {
-      return NextResponse.json(
-        { error: 'CAPTIONS_NOT_FOUND', message: '이 영상에는 자막이 없습니다. 자막이 있는 영상을 선택해주세요.' },
-        { status: 404 }
-      );
+    if (raw && raw.length > 0) {
+      const captions = groupCaptionsIntoSentences(raw);
+      cache.set(videoId, { data: captions, expiresAt: Date.now() + CACHE_TTL_MS });
+      return NextResponse.json({ videoId, captions });
     }
-
-    const raw: CaptionItem[] = transcript.map((item) => ({
-      text: item.text,
-      offset: Math.round(item.offset),
-      duration: Math.round(item.duration),
-    }));
-
-    const captions = groupCaptionsIntoSentences(raw);
-
-    cache.set(videoId, { data: captions, expiresAt: Date.now() + CACHE_TTL_MS });
-
-    return NextResponse.json({ videoId, captions });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
-      console.error('[transcript] fetch failed, using mock:', error);
+      console.error('[transcript] supadata failed:', error);
     }
-
-    const mockGrouped = groupCaptionsIntoSentences(MOCK_CAPTIONS);
-    cache.set(videoId, { data: mockGrouped, expiresAt: Date.now() + CACHE_TTL_MS });
-
-    return NextResponse.json({ videoId, captions: mockGrouped });
   }
+
+  const mockGrouped = groupCaptionsIntoSentences(MOCK_CAPTIONS);
+  cache.set(videoId, { data: mockGrouped, expiresAt: Date.now() + CACHE_TTL_MS });
+  return NextResponse.json({ videoId, captions: mockGrouped });
 }

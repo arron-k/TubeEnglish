@@ -78,19 +78,6 @@ export async function GET(request: NextRequest) {
       console.error('[transcript] fetch failed, using mock:', error);
     }
 
-    const isNoTranscriptError =
-      error instanceof Error &&
-      (error.message.includes('No transcript') ||
-        error.message.includes('disabled') ||
-        error.message.includes('Could not find'));
-
-    if (isNoTranscriptError) {
-      return NextResponse.json(
-        { error: 'CAPTIONS_NOT_FOUND', message: '이 영상에는 자막이 없습니다. 자막이 있는 영상을 선택해주세요.' },
-        { status: 404 }
-      );
-    }
-
     const mockGrouped = groupCaptionsIntoSentences(MOCK_CAPTIONS);
     cache.set(videoId, { data: mockGrouped, expiresAt: Date.now() + CACHE_TTL_MS });
 

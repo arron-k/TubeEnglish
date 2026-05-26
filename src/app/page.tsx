@@ -1,65 +1,90 @@
-import Image from "next/image";
+import UrlInputBar from '@/components/common/UrlInputBar';
 
-export default function Home() {
+const SAMPLE_VIDEOS = [
+  { label: 'TED Talk', videoId: 'arj7oStGLkU' },
+  { label: 'CNN News', videoId: 'dQw4w9WgXcQ' },
+  { label: 'Crash Course', videoId: '8AHCfZTRGiI' },
+];
+
+const FEATURES = [
+  {
+    icon: '🎬',
+    title: '자막 동기화',
+    desc: '영상과 자막이 실시간으로 함께 움직여요',
+  },
+  {
+    icon: '🎙️',
+    title: '쉐도잉 연습',
+    desc: '말하는 순간 발음을 즉시 분석해줘요',
+  },
+  {
+    icon: '🤖',
+    title: 'AI 튜터',
+    desc: '틀린 표현을 바로잡고 함께 대화해요',
+  },
+];
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ login_required?: string }>;
+}) {
+  const params = await searchParams;
+  const loginRequired = params.login_required === '1';
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="flex flex-1 flex-col">
+      {loginRequired && (
+        <div className="bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+          로그인 후 이용할 수 있어요. 우측 상단에서 Google 로그인해주세요.
+        </div>
+      )}
+
+      {/* Hero */}
+      <section className="flex flex-1 flex-col items-center justify-center px-4 py-20">
+        <div className="w-full max-w-2xl text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-brand-500" />
+            AI 영어 학습의 새로운 방법
+          </div>
+
+          <h1 className="mb-4 text-5xl font-bold tracking-tight text-gray-900 dark:text-white md:text-6xl">
+            Tube
+            <span className="text-brand-600">English</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+          <p className="mb-10 text-lg text-gray-500 dark:text-gray-400">
+            유튜브 영상을 보고, 따라 말하고, AI와 대화하며
+            <br className="hidden sm:block" />
+            실전 영어를 가장 빠르게 익혀보세요.
+          </p>
+
+          <UrlInputBar size="large" />
+
+          <p className="mt-3 text-xs text-gray-400 dark:text-gray-600">
+            예시: youtube.com/watch?v=... 또는 youtu.be/...
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Features */}
+      <section className="border-t border-gray-100 bg-gray-50 px-4 py-16 dark:border-gray-800 dark:bg-gray-900/40">
+        <div className="mx-auto max-w-3xl">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {FEATURES.map((f) => (
+              <div
+                key={f.title}
+                className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800"
+              >
+                <div className="mb-3 text-3xl">{f.icon}</div>
+                <h3 className="mb-1 font-semibold text-gray-900 dark:text-white">{f.title}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{f.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+    </main>
   );
 }

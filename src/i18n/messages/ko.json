@@ -1,0 +1,40 @@
+{
+  "landing": {
+    "slogan": "유튜브로 영어를, AI와 함께 말하며 배우는 가장 빠른 방법",
+    "inputPlaceholder": "유튜브 URL을 입력하세요 (예: https://www.youtube.com/watch?v=...)",
+    "startButton": "학습 시작",
+    "invalidUrl": "올바른 유튜브 URL을 입력해주세요."
+  },
+  "player": {
+    "loading": "자막을 불러오는 중...",
+    "noCaption": "자막이 없는 영상입니다.",
+    "speed": "재생 속도"
+  },
+  "shadowing": {
+    "start": "쉐도잉 시작",
+    "listening": "듣고 있어요...",
+    "processing": "분석 중...",
+    "score": "일치율",
+    "perfect": "완벽해요! 🎉",
+    "good": "잘했어요! 거의 다 왔어요 👍",
+    "fair": "조금 더 연습하면 완벽할 거예요!",
+    "poor": "한 번 더 들어보고 따라해볼까요?"
+  },
+  "tutor": {
+    "title": "AI 튜터",
+    "placeholder": "영어로 메시지를 입력하세요...",
+    "send": "전송",
+    "practice": "다시 연습하기",
+    "skipPractice": "나중에 복습하기",
+    "practicePrompt": "아래 문장을 따라 말해보세요:",
+    "passed": "잘했어요! 통과! 🎉",
+    "tryAgain": "거의 다 왔어요! 한 번 더 해볼까요?"
+  },
+  "common": {
+    "dark": "다크 모드",
+    "light": "라이트 모드",
+    "back": "뒤로",
+    "close": "닫기",
+    "loading": "로딩 중..."
+  }
+}

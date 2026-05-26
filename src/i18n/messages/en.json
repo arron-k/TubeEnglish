@@ -1,0 +1,40 @@
+{
+  "landing": {
+    "slogan": "The fastest way to learn English — watch YouTube, speak with AI",
+    "inputPlaceholder": "Enter a YouTube URL (e.g. https://www.youtube.com/watch?v=...)",
+    "startButton": "Start Learning",
+    "invalidUrl": "Please enter a valid YouTube URL."
+  },
+  "player": {
+    "loading": "Loading captions...",
+    "noCaption": "No captions available for this video.",
+    "speed": "Speed"
+  },
+  "shadowing": {
+    "start": "Start Shadowing",
+    "listening": "Listening...",
+    "processing": "Analyzing...",
+    "score": "Match Rate",
+    "perfect": "Perfect! 🎉",
+    "good": "Great job! Almost there 👍",
+    "fair": "A bit more practice and you'll nail it!",
+    "poor": "Try listening again and repeat!"
+  },
+  "tutor": {
+    "title": "AI Tutor",
+    "placeholder": "Type in English...",
+    "send": "Send",
+    "practice": "Practice Again",
+    "skipPractice": "Review Later",
+    "practicePrompt": "Try saying the sentence below:",
+    "passed": "Excellent! You passed! 🎉",
+    "tryAgain": "So close! Give it one more try!"
+  },
+  "common": {
+    "dark": "Dark Mode",
+    "light": "Light Mode",
+    "back": "Back",
+    "close": "Close",
+    "loading": "Loading..."
+  }
+}

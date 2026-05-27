@@ -1,5 +1,6 @@
 import Groq from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { TranslationResult } from '@/types';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
@@ -14,44 +15,63 @@ const LANG_NAMES: Record<string, string> = {
   en: 'English',
 };
 
-function buildTranslatePrompt(text: string, targetLang: string): string {
+function buildFullPrompt(text: string, targetLang: string): string {
   const langName = LANG_NAMES[targetLang] ?? targetLang;
-  return `Translate the following English text to ${langName}. Return ONLY valid JSON with a single key "translation". No explanation, no markdown.
+  return `You are an English teacher and ${langName} translator. Analyze this English sentence and return ONLY valid JSON — no markdown, no explanation.
 
-Text: "${text}"
+Sentence: "${text}"
 
-Example output: {"translation": "번역된 텍스트"}`;
+Return JSON with this exact shape:
+{
+  "natural": "${langName}로 자연스러운 의역 (표현의 뉘앙스와 맥락을 살려서)",
+  "literal": "영어 어순 그대로의 직역 (단어 하나하나 대응)",
+  "keyExpression": {
+    "original": "most interesting/idiomatic phrase (2-5 words)",
+    "meaning": "${langName}로 핵심 의미"
+  }
 }
 
-function extractTranslation(raw: string): string {
+If there is no particularly noteworthy expression, set keyExpression to null.`;
+}
+
+function extractFull(raw: string): TranslationResult {
   const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
   const parsed = JSON.parse(cleaned);
-  if (typeof parsed.translation !== 'string' || !parsed.translation.trim()) {
+  if (typeof parsed.natural !== 'string' || typeof parsed.literal !== 'string') {
     throw new Error('Invalid translation shape');
   }
-  return parsed.translation.trim();
+  return {
+    natural: parsed.natural.trim(),
+    literal: parsed.literal.trim(),
+    keyExpression:
+      parsed.keyExpression &&
+      typeof parsed.keyExpression.original === 'string' &&
+      typeof parsed.keyExpression.meaning === 'string'
+        ? { original: parsed.keyExpression.original.trim(), meaning: parsed.keyExpression.meaning.trim() }
+        : null,
+  };
 }
 
-async function translateViaGroq(text: string, targetLang: string): Promise<string> {
+async function translateFullViaGroq(text: string, targetLang: string): Promise<TranslationResult> {
   const completion = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
-    messages: [{ role: 'user', content: buildTranslatePrompt(text, targetLang) }],
-    temperature: 0.1,
-    max_tokens: 256,
+    messages: [{ role: 'user', content: buildFullPrompt(text, targetLang) }],
+    temperature: 0.2,
+    max_tokens: 512,
     response_format: { type: 'json_object' },
   });
-  return extractTranslation(completion.choices[0]?.message?.content ?? '');
+  return extractFull(completion.choices[0]?.message?.content ?? '');
 }
 
-async function translateViaGemini(text: string, targetLang: string): Promise<string> {
+async function translateFullViaGemini(text: string, targetLang: string): Promise<TranslationResult> {
   for (const modelName of GEMINI_MODELS) {
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
-        generationConfig: { temperature: 0.1, maxOutputTokens: 256, responseMimeType: 'application/json' },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 512, responseMimeType: 'application/json' },
       });
-      const result = await model.generateContent(buildTranslatePrompt(text, targetLang));
-      return extractTranslation(result.response.text());
+      const result = await model.generateContent(buildFullPrompt(text, targetLang));
+      return extractFull(result.response.text());
     } catch {
       continue;
     }
@@ -59,10 +79,10 @@ async function translateViaGemini(text: string, targetLang: string): Promise<str
   throw new Error('All Gemini models failed');
 }
 
-export async function translateText(text: string, targetLang = 'ko'): Promise<string> {
+export async function translateFull(text: string, targetLang = 'ko'): Promise<TranslationResult> {
   try {
-    return await translateViaGroq(text, targetLang);
+    return await translateFullViaGroq(text, targetLang);
   } catch {
-    return await translateViaGemini(text, targetLang);
+    return await translateFullViaGemini(text, targetLang);
   }
 }

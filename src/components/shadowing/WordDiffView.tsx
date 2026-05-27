@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, useReducedMotion } from 'framer-motion';
+import { Check, X } from 'lucide-react';
 import type { WordResult } from '@/types';
 
 interface Props {
@@ -21,13 +22,18 @@ export default function WordDiffView({ wordResults }: Props) {
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: shouldReduceMotion ? 0 : i * 0.04, duration: 0.15 }}
-          className={`inline-block rounded px-1 py-0.5 text-xs font-medium ${
+          className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs font-medium ${
             wr.matched
               ? 'bg-green-100 text-green-800 underline dark:bg-green-900/30 dark:text-green-300'
               : 'bg-red-100 text-red-700 line-through dark:bg-red-900/30 dark:text-red-400'
           }`}
           aria-label={`${wr.word} ${wr.matched ? '정확' : '틀림'}`}
         >
+          {wr.matched ? (
+            <Check className="h-2.5 w-2.5 flex-shrink-0" aria-hidden="true" />
+          ) : (
+            <X className="h-2.5 w-2.5 flex-shrink-0" aria-hidden="true" />
+          )}
           {wr.word}
         </motion.span>
       ))}

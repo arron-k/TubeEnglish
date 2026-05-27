@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import ThemeProvider from '@/components/common/ThemeProvider';
 import AuthProvider from '@/components/auth/AuthProvider';
@@ -65,6 +66,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col bg-white text-gray-900 dark:bg-[#1a1a1a] dark:text-gray-100">
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme:dark)').matches;if(s==='dark'||(s===null&&d)){document.documentElement.classList.add('dark');}})();`,
+          }}
+        />
         <ThemeProvider>
           <AuthProvider>
             <ToastProvider>

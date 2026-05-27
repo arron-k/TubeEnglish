@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { extractVideoId, isValidYoutubeUrl } from '@/lib/utils/youtubeParser';
 
 interface UrlInputBarProps {
@@ -49,6 +49,7 @@ export default function UrlInputBar({ size = 'default' }: UrlInputBarProps) {
     if (error) setError('');
   };
 
+  const shouldReduceMotion = useReducedMotion();
   const isLarge = size === 'large';
 
   return (
@@ -76,8 +77,8 @@ export default function UrlInputBar({ size = 'default' }: UrlInputBarProps) {
         <motion.button
           type="submit"
           disabled={isLoading}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
+          whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
+          whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
           className={`
             flex shrink-0 items-center gap-2 rounded-xl bg-brand-600 font-semibold text-white
             transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60

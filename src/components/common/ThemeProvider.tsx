@@ -17,11 +17,19 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const dark = stored === 'dark' || (!stored && prefersDark);
-    setIsDark(dark);
-    document.documentElement.classList.toggle('dark', dark);
+    // Sync React state with the class already applied by the inline anti-FOUC script
+    setIsDark(document.documentElement.classList.contains('dark'));
+
+    // Update in real-time when system preference changes (only when no manual override)
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem('theme')) {
+        document.documentElement.classList.toggle('dark', e.matches);
+        setIsDark(e.matches);
+      }
+    };
+    mql.addEventListener('change', handleChange);
+    return () => mql.removeEventListener('change', handleChange);
   }, []);
 
   const toggle = () => {

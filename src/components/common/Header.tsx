@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from './ThemeProvider';
 import AuthButton from '@/components/auth/AuthButton';
+import StreakBadge from './StreakBadge';
 
 function SunIcon() {
   return (
@@ -57,6 +58,7 @@ export default function Header() {
           Tube<span className="text-brand-600 dark:text-brand-400">English</span>
         </Link>
         <div className="flex items-center gap-2">
+          <StreakBadge />
           <DarkModeToggle />
           <AuthButton />
         </div>
@@ -71,6 +73,7 @@ export default function Header() {
           Tube<span className="text-brand-600 dark:text-brand-400">English</span>
         </Link>
         <nav className="flex items-center gap-2">
+          <StreakBadge />
           <Link
             href="/dashboard"
             className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"

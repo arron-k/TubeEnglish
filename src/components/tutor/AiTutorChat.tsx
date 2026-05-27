@@ -9,6 +9,8 @@ import { useToast } from '@/components/common/ToastProvider';
 import { saveChatMessage } from '@/lib/supabase/db';
 import MessageBubble from './MessageBubble';
 import RePracticeOverlay from './RePracticeOverlay';
+import PaywallBanner from '@/components/paywall/PaywallBanner';
+import { FREE_DAILY_AI_LIMIT } from '@/lib/utils/paywall';
 import type { AiTutorResponse, VideoContext } from '@/types';
 
 function TypingIndicator() {
@@ -63,16 +65,27 @@ export default function AiTutorChat({ videoContext, initialGreeting }: Props) {
     setIsLoading,
     setVideoContext,
     startRepractice,
+    pendingPrompt,
+    setPendingPrompt,
   } = useChatStore();
 
-  const { user } = useAuthStore();
+  const { user, isPremium, dailyAiRemaining, decrementDailyAi } = useAuthStore();
   const { showToast } = useToast();
+  const isPaywallHit = !isPremium && dailyAiRemaining === 0;
 
   const { state: speechState, finalTranscript, interimTranscript, isSupported, start: startSTT, reset: resetSTT } = useSpeechRecognition();
 
   useEffect(() => {
     if (videoContext) setVideoContext(videoContext);
   }, [videoContext, setVideoContext]);
+
+  useEffect(() => {
+    if (pendingPrompt) {
+      setInputText(pendingPrompt);
+      setPendingPrompt(null);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [pendingPrompt, setPendingPrompt]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: shouldReduceMotion ? 'auto' : 'smooth' });
@@ -108,9 +121,15 @@ export default function AiTutorChat({ videoContext, initialGreeting }: Props) {
           }),
         });
 
+        if (res.status === 429) {
+          decrementDailyAi();
+          return;
+        }
+
         if (!res.ok) throw new Error(`API error ${res.status}`);
         const data: AiTutorResponse = await res.json();
         addAssistantMessage(data);
+        decrementDailyAi();
 
         if (user && videoContext?.videoId) {
           const vid = videoContext.videoId;
@@ -146,7 +165,7 @@ export default function AiTutorChat({ videoContext, initialGreeting }: Props) {
         setIsLoading(false);
       }
     },
-    [isLoading, isPracticeBlocked, level, uiLang, videoContext, history, addUserMessage, addAssistantMessage, setIsLoading, showToast]
+    [isLoading, isPracticeBlocked, level, uiLang, videoContext, history, addUserMessage, addAssistantMessage, setIsLoading, decrementDailyAi, showToast]
   );
 
   const handleRepractice = useCallback(
@@ -176,7 +195,7 @@ export default function AiTutorChat({ videoContext, initialGreeting }: Props) {
 
   const isListening = speechState === 'listening';
   const isProcessing = speechState === 'processing';
-  const canSend = inputText.trim().length > 0 && !isLoading && !isPracticeBlocked;
+  const canSend = inputText.trim().length > 0 && !isLoading && !isPracticeBlocked && !isPaywallHit;
 
   const showGreeting = messages.length === 0 && !isLoading;
 
@@ -234,6 +253,10 @@ export default function AiTutorChat({ videoContext, initialGreeting }: Props) {
 
       {repracticeTarget && <RePracticeOverlay />}
 
+      {isPaywallHit && (
+        <PaywallBanner usedCount={FREE_DAILY_AI_LIMIT} />
+      )}
+
       <div className="border-t border-gray-100 p-3 dark:border-gray-800">
         {isVoiceMode && (
           <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
@@ -281,8 +304,14 @@ export default function AiTutorChat({ videoContext, initialGreeting }: Props) {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isPracticeBlocked || isLoading}
-            placeholder={isPracticeBlocked ? '재연습 후 계속할 수 있어요' : '영어로 말해보세요... (Enter로 전송)'}
+            disabled={isPracticeBlocked || isLoading || isPaywallHit}
+            placeholder={
+              isPaywallHit
+                ? '내일 다시 만나요 🌙'
+                : isPracticeBlocked
+                  ? '재연습 후 계속할 수 있어요'
+                  : '영어로 말해보세요... (Enter로 전송)'
+            }
             rows={1}
             aria-label="메시지 입력"
             className="flex-1 resize-none rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-50 disabled:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-brand-500 dark:focus:ring-brand-900/40 dark:disabled:bg-gray-800"

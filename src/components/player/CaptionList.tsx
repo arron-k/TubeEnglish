@@ -21,9 +21,11 @@ interface PopupState {
 
 interface Props {
   captions: Caption[];
+  onAiChat?: (captionText: string) => void;
+  aiChatLocked?: boolean;
 }
 
-export default function CaptionList({ captions }: Props) {
+export default function CaptionList({ captions, onAiChat, aiChatLocked }: Props) {
   const [popup, setPopup] = useState<PopupState | null>(null);
   const [isSecure, setIsSecure] = useState(true);
 
@@ -89,6 +91,16 @@ export default function CaptionList({ captions }: Props) {
     }
   }, [activeIndex, captions, setActiveCaptionText]);
 
+  const handleNextCaption = useCallback(() => {
+    const nextCaption = captions[activeIndex + 1];
+    if (nextCaption) {
+      seekTo(nextCaption.offset);
+      setIsPlaying(true);
+    } else {
+      setMatchResult(null);
+    }
+  }, [activeIndex, captions, seekTo, setIsPlaying, setMatchResult]);
+
   const handleMicClick = useCallback(async () => {
     if (micState === 'listening') return;
     if (micDisabled) return;
@@ -127,6 +139,9 @@ export default function CaptionList({ captions }: Props) {
             micDisabled={micDisabled}
             onMicClick={handleMicClick}
             onWordClick={handleWordClick}
+            aiChatLocked={aiChatLocked}
+            onAiChat={onAiChat}
+            onNextCaption={idx === activeIndex ? handleNextCaption : undefined}
           />
         ))}
       </div>

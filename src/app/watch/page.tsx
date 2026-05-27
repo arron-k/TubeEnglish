@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import YoutubePlayer, { type YoutubePlayerHandle } from '@/components/player/YoutubePlayer';
 import PlaybackControls from '@/components/player/PlaybackControls';
 import CaptionList from '@/components/player/CaptionList';
 import CaptionSkeleton from '@/components/player/CaptionSkeleton';
 import AiTutorChat from '@/components/tutor/AiTutorChat';
+import AiTutorFab from '@/components/tutor/AiTutorFab';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useShadowingStore } from '@/stores/shadowingStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -49,6 +50,7 @@ function WatchContent() {
   const [videoTitle, setVideoTitle] = useState<string>('');
 
   const captions = usePlayerStore((s) => s.captions);
+  const activeCaptionIndex = usePlayerStore((s) => s.activeCaptionIndex);
   const setCaptions = usePlayerStore((s) => s.setCaptions);
   const setVideoIdInStore = usePlayerStore((s) => s.setVideoId);
   const watchedSeconds = usePlayerStore((s) => s.watchedSeconds);
@@ -58,8 +60,34 @@ function WatchContent() {
   const resetShadowingSession = useShadowingStore((s) => s.resetSession);
   const chatMessages = useChatStore((s) => s.messages);
   const clearChat = useChatStore((s) => s.clearChat);
+  const setPendingPrompt = useChatStore((s) => s.setPendingPrompt);
 
-  const { user } = useAuthStore();
+  const handleAiChat = (captionText: string) => {
+    setPendingPrompt(captionText);
+    setActiveTab('tutor');
+  };
+
+  const handleFabClick = () => {
+    setActiveTab('tutor');
+  };
+
+  const dynamicGreeting = useMemo(() => {
+    for (let i = chatMessages.length - 1; i >= 0; i--) {
+      const msg = chatMessages[i];
+      if (msg.role === 'assistant' && msg.tutorResponse?.key_expression) {
+        return `방금 '${msg.tutorResponse.key_expression.expression}' 표현 봤죠? 이걸로 영어로 이야기해볼까요? 😊`;
+      }
+    }
+    if (activeCaptionIndex >= 0 && captions[activeCaptionIndex]) {
+      const text = captions[activeCaptionIndex].text;
+      const snippet = text.length > 40 ? text.slice(0, 40) + '…' : text;
+      return `방금 "${snippet}" 이 부분을 공부했는데, 이 주제로 영어로 이야기해볼까요? 자유롭게 말씀해주세요! 😊`;
+    }
+    return undefined;
+  }, [chatMessages, captions, activeCaptionIndex]);
+
+  const { user, isPremium, dailyAiRemaining } = useAuthStore();
+  const aiChatLocked = !isPremium && dailyAiRemaining === 0;
 
   const { captions: fetchedCaptions, isLoading, error, fetchTranscript } = useTranscript();
 
@@ -141,6 +169,7 @@ function WatchContent() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
+      <AiTutorFab onClick={handleFabClick} isActive={activeTab === 'tutor'} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_360px]">
         <div className="space-y-3">
           <YoutubePlayer ref={playerRef} videoId={videoId} />
@@ -175,10 +204,10 @@ function WatchContent() {
                     </div>
                   </div>
                 )}
-                {!isLoading && !error && <CaptionList captions={captions} />}
+                {!isLoading && !error && <CaptionList captions={captions} onAiChat={handleAiChat} aiChatLocked={aiChatLocked} />}
               </div>
             ) : (
-              <AiTutorChat videoContext={videoContext} />
+              <AiTutorChat videoContext={videoContext} initialGreeting={dynamicGreeting} />
             )}
           </div>
         </div>

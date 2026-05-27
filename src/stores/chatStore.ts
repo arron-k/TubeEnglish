@@ -20,6 +20,7 @@ interface ChatState {
   uiLang: UILang;
   level: LearningLevel;
   sessionId: string;
+  pendingPrompt: string | null;
 
   addUserMessage: (content: string) => void;
   addAssistantMessage: (response: AiTutorResponse) => void;
@@ -32,6 +33,7 @@ interface ChatState {
   setVideoContext: (ctx: VideoContext) => void;
   setUiLang: (lang: UILang) => void;
   setLevel: (level: LearningLevel) => void;
+  setPendingPrompt: (prompt: string | null) => void;
   clearChat: () => void;
 }
 
@@ -49,6 +51,7 @@ export const useChatStore = create<ChatState>((set) => ({
   uiLang: 'ko',
   level: 'beginner',
   sessionId: generateSessionId(),
+  pendingPrompt: null,
 
   addUserMessage: (content) =>
     set((s) => ({
@@ -92,5 +95,6 @@ export const useChatStore = create<ChatState>((set) => ({
   setVideoContext: (ctx) => set({ videoContext: ctx }),
   setUiLang: (lang) => set({ uiLang: lang }),
   setLevel: (level) => set({ level }),
-  clearChat: () => set({ messages: [], history: [], sessionId: generateSessionId() }),
+  setPendingPrompt: (prompt) => set({ pendingPrompt: prompt }),
+  clearChat: () => set({ messages: [], history: [], sessionId: generateSessionId(), pendingPrompt: null }),
 }));

@@ -47,3 +47,10 @@ export interface VideoContext {
 
 export type UILang = 'ko' | 'en' | 'ja' | 'zh' | 'th';
 export type LearningLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export interface TranslationResult {
+  natural: string;
+  literal: string;
+  keyExpression: { original: string; meaning: string } | null;
+  cached?: boolean;
+}

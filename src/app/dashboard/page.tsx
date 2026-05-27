@@ -40,7 +40,7 @@ export default async function DashboardPage() {
   const sixteenWeeksAgo = new Date();
   sixteenWeeksAgo.setDate(sixteenWeeksAgo.getDate() - 16 * 7);
 
-  const [userRes, aggRes, recentRes, heatmapRes] = await Promise.all([
+  const [userRes, logsRes] = await Promise.all([
     supabase
       .from('users')
       .select('display_name, avatar_url, streak_days, longest_streak, total_learning_minutes, last_learned_at')
@@ -48,34 +48,62 @@ export default async function DashboardPage() {
       .single(),
     supabase
       .from('learning_logs')
-      .select('completed_shadowing_count, ai_conversation_count')
-      .eq('user_id', user.id),
-    supabase
-      .from('learning_logs')
-      .select('id, video_id, video_title, video_thumbnail_url, watched_duration, average_shadowing_score, created_at')
+      .select(
+        'video_id, video_title, video_thumbnail_url, watched_duration, average_shadowing_score, completed_shadowing_count, ai_conversation_count, created_at'
+      )
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(6),
-    supabase
-      .from('learning_logs')
-      .select('created_at, watched_duration')
-      .eq('user_id', user.id)
-      .gte('created_at', sixteenWeeksAgo.toISOString()),
+      .order('created_at', { ascending: false }),
   ]);
 
   const userData = userRes.data;
-  const allLogs = aggRes.data;
-  const recentLogs = recentRes.data;
-  const heatmapRaw = heatmapRes.data;
+  const allLogs = logsRes.data ?? [];
 
-  const totalShadowing = allLogs?.reduce((s, r) => s + (r.completed_shadowing_count ?? 0), 0) ?? 0;
-  const totalAiChats = allLogs?.reduce((s, r) => s + (r.ai_conversation_count ?? 0), 0) ?? 0;
+  const totalShadowing = allLogs.reduce((s, r) => s + (r.completed_shadowing_count ?? 0), 0);
+  const totalAiChats = allLogs.reduce((s, r) => s + (r.ai_conversation_count ?? 0), 0);
 
+  const sixteenWeeksAgoIso = sixteenWeeksAgo.toISOString();
   const heatmapData: Record<string, number> = {};
-  heatmapRaw?.forEach((log) => {
+  allLogs.forEach((log) => {
+    if (log.created_at < sixteenWeeksAgoIso) return;
     const date = toKstDateString(log.created_at);
     heatmapData[date] = (heatmapData[date] ?? 0) + (log.watched_duration ?? 0);
   });
+
+  type RecentVideo = {
+    videoId: string;
+    title: string;
+    thumbnail: string | null;
+    totalDuration: number;
+    sessionCount: number;
+    latestScore: number | null;
+    lastLearnedAt: string;
+  };
+
+  const videoMap = new Map<string, RecentVideo>();
+  allLogs.forEach((log) => {
+    const existing = videoMap.get(log.video_id);
+    if (!existing) {
+      videoMap.set(log.video_id, {
+        videoId: log.video_id,
+        title: log.video_title,
+        thumbnail: log.video_thumbnail_url,
+        totalDuration: log.watched_duration ?? 0,
+        sessionCount: 1,
+        latestScore: log.average_shadowing_score ?? null,
+        lastLearnedAt: log.created_at,
+      });
+    } else {
+      existing.totalDuration += log.watched_duration ?? 0;
+      existing.sessionCount += 1;
+      if (existing.latestScore == null && log.average_shadowing_score != null) {
+        existing.latestScore = log.average_shadowing_score;
+      }
+    }
+  });
+
+  const recentVideos = [...videoMap.values()]
+    .sort((a, b) => b.lastLearnedAt.localeCompare(a.lastLearnedAt))
+    .slice(0, 6);
 
   const streakDays = userData?.streak_days ?? 0;
   const longestStreak = userData?.longest_streak ?? 0;
@@ -144,7 +172,7 @@ export default async function DashboardPage() {
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">최근 학습 영상</h2>
         </div>
 
-        {!recentLogs || recentLogs.length === 0 ? (
+        {recentVideos.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-gray-200 px-6 py-12 text-center dark:border-gray-700">
             <p className="mb-2 text-4xl">🎬</p>
             <p className="text-gray-500 dark:text-gray-400">아직 학습한 영상이 없어요.</p>
@@ -157,41 +185,49 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recentLogs.map((log) => (
+            {recentVideos.map((video) => (
               <Link
-                key={log.id}
-                href={`/watch?v=${log.video_id}`}
+                key={video.videoId}
+                href={`/watch?v=${video.videoId}`}
                 className="group overflow-hidden rounded-2xl bg-white shadow-sm transition-shadow hover:shadow-md dark:bg-gray-900"
               >
                 <div className="relative aspect-video overflow-hidden bg-gray-100 dark:bg-gray-800">
                   <Image
                     src={
-                      log.video_thumbnail_url ??
-                      `https://img.youtube.com/vi/${log.video_id}/mqdefault.jpg`
+                      video.thumbnail ??
+                      `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`
                     }
-                    alt={log.video_title}
+                    alt={video.title}
                     fill
                     className="object-cover transition-transform group-hover:scale-105"
                   />
+                  {video.sessionCount > 1 && (
+                    <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-xs font-medium text-white">
+                      {video.sessionCount}회 학습
+                    </span>
+                  )}
                 </div>
                 <div className="p-4">
                   <p className="mb-1 line-clamp-2 text-sm font-medium text-gray-900 dark:text-white">
-                    {log.video_title}
+                    {video.title}
                   </p>
                   <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span>{formatDate(log.created_at)}</span>
-                    <span>{formatMinutes(Math.round((log.watched_duration ?? 0) / 60))}</span>
+                    <span>{formatDate(video.lastLearnedAt)}</span>
+                    <span>
+                      {video.sessionCount > 1 ? '총 ' : ''}
+                      {formatMinutes(Math.round(video.totalDuration / 60))}
+                    </span>
                   </div>
-                  {log.average_shadowing_score != null && log.average_shadowing_score > 0 && (
+                  {video.latestScore != null && video.latestScore > 0 && (
                     <div className="mt-2 flex items-center gap-1">
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                         <div
                           className="h-full rounded-full bg-brand-500"
-                          style={{ width: `${log.average_shadowing_score}%` }}
+                          style={{ width: `${video.latestScore}%` }}
                         />
                       </div>
                       <span className="text-xs text-gray-400">
-                        {Math.round(log.average_shadowing_score)}%
+                        {Math.round(video.latestScore)}%
                       </span>
                     </div>
                   )}

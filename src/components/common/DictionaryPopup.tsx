@@ -53,12 +53,12 @@ function cleanWord(raw: string) {
 
 async function fetchTranslation(text: string): Promise<string> {
   try {
-    const res = await fetch(`/api/translate?text=${encodeURIComponent(text)}&target=ko`, {
+    const res = await fetch(`/api/translate?text=${encodeURIComponent(text)}`, {
       cache: 'no-store',
     });
     if (!res.ok) return '';
     const data = await res.json();
-    return data.translation ?? '';
+    return data.natural ?? '';
   } catch {
     return '';
   }

@@ -41,8 +41,58 @@ function isSentenceEnd(text: string): boolean {
   return true;
 }
 
-export function groupCaptionsIntoSentences(captions: Caption[]): Caption[] {
-  if (captions.length === 0) return [];
+// A single raw segment can itself contain several sentences (e.g. Supadata
+// returns paragraph-sized chunks, or a transcript keeps mid-segment periods).
+// Split on sentence-ending punctuation followed by whitespace, then re-merge
+// pieces whose predecessor is not a real sentence end (abbreviation, initial,
+// ellipsis) so boundary detection stays consistent with isSentenceEnd.
+function splitTextIntoSentences(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  const rawParts = trimmed.split(/(?<=[.!?])\s+/);
+  const merged: string[] = [];
+
+  for (const part of rawParts) {
+    if (merged.length === 0) {
+      merged.push(part);
+      continue;
+    }
+    const prev = merged[merged.length - 1];
+    if (isSentenceEnd(prev)) {
+      merged.push(part);
+    } else {
+      merged[merged.length - 1] = `${prev} ${part}`;
+    }
+  }
+
+  return merged;
+}
+
+// Distribute a segment's timing across its split sentences proportionally to
+// character length so caption highlighting stays roughly in sync.
+function splitCaptionByTiming(caption: Caption): Caption[] {
+  const sentences = splitTextIntoSentences(caption.text);
+  if (sentences.length <= 1) return [caption];
+
+  const totalChars = sentences.reduce((sum, s) => sum + s.length, 0) || 1;
+  let elapsed = 0;
+
+  return sentences.map((sentence) => {
+    const fraction = sentence.length / totalChars;
+    const offset = Math.round(caption.offset + elapsed);
+    const duration = Math.round(caption.duration * fraction);
+    elapsed += caption.duration * fraction;
+    return { text: sentence, offset, duration };
+  });
+}
+
+export function groupCaptionsIntoSentences(rawCaptions: Caption[]): Caption[] {
+  if (rawCaptions.length === 0) return [];
+
+  // Break paragraph-sized segments into sentences first, so grouping can
+  // operate on real sentence boundaries instead of arbitrary source chunks.
+  const captions = rawCaptions.flatMap(splitCaptionByTiming);
 
   // YouTube ASR capitalizes the first word of each sentence; continuation
   // segments are lowercase. Only enable this heuristic when the transcript

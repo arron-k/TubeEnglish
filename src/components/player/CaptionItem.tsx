@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
-import { Mic, Loader2, CheckCircle2, XCircle, MessageCircle, BookOpen, ChevronDown, ChevronUp, Lock } from 'lucide-react';
+import { Mic, Loader2, CheckCircle2, XCircle, MessageCircle, BookOpen, Languages, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { usePlayerStore } from '@/stores/playerStore';
 import ShadowingCard from '@/components/shadowing/ShadowingCard';
 import type { Caption, SpeechRecognitionState, MatchResult, TranslationResult } from '@/types';
@@ -22,7 +22,13 @@ interface Props {
   onNextCaption?: () => void;
 }
 
-function TranslationArea({ caption, isActive }: { caption: Caption; isActive: boolean }) {
+function TranslationArea({
+  caption,
+  enabled,
+}: {
+  caption: Caption;
+  enabled: boolean;
+}) {
   const videoId = usePlayerStore((s) => s.videoId);
   const [translation, setTranslation] = useState<TranslationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +36,7 @@ function TranslationArea({ caption, isActive }: { caption: Caption; isActive: bo
   const hasFetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!isActive || hasFetchedRef.current || !videoId) return;
+    if (!enabled || hasFetchedRef.current || !videoId) return;
     hasFetchedRef.current = true;
     setIsLoading(true);
 
@@ -44,9 +50,9 @@ function TranslationArea({ caption, isActive }: { caption: Caption; isActive: bo
       .then((data) => { if (data && !data.error) setTranslation(data); })
       .catch(() => {})
       .finally(() => setIsLoading(false));
-  }, [isActive, caption.text, caption.offset, videoId]);
+  }, [enabled, caption.text, caption.offset, videoId]);
 
-  if (!isActive) return null;
+  if (!enabled) return null;
 
   return (
     <div className="mt-1.5 space-y-1.5">
@@ -120,6 +126,7 @@ export default function CaptionItem({
   const shouldReduceMotion = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const [wordLookupMode, setWordLookupMode] = useState(false);
+  const [translationMode, setTranslationMode] = useState(false);
 
   const showTranscript = isActive && (interimTranscript || finalTranscript) && !matchResult;
   const displayText = finalTranscript || interimTranscript;
@@ -132,7 +139,10 @@ export default function CaptionItem({
   }, [isActive]);
 
   useEffect(() => {
-    if (!isActive) setWordLookupMode(false);
+    if (!isActive) {
+      setWordLookupMode(false);
+      setTranslationMode(false);
+    }
   }, [isActive]);
 
   const handleWordTap = (word: string, e: React.MouseEvent) => {
@@ -209,7 +219,7 @@ export default function CaptionItem({
         )}
       </span>
 
-      <TranslationArea caption={caption} isActive={isActive} />
+      <TranslationArea caption={caption} enabled={translationMode} />
 
       <AnimatePresence mode="wait">
         {showTranscript && (
@@ -252,7 +262,7 @@ export default function CaptionItem({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
-            className="mt-2 grid grid-cols-3 gap-2"
+            className="mt-2 grid grid-cols-2 gap-2"
           >
             <button
               type="button"
@@ -324,6 +334,21 @@ export default function CaptionItem({
             >
               <BookOpen className="h-4 w-4" />
               <span>{wordLookupMode ? '단어 선택' : '단어'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setTranslationMode((v) => !v); }}
+              className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                translationMode
+                  ? 'bg-indigo-200 text-indigo-900'
+                  : 'bg-white/95 text-brand-600 hover:bg-white dark:bg-white/90'
+              }`}
+              aria-label="번역 보기"
+              aria-pressed={translationMode}
+            >
+              <Languages className="h-4 w-4" />
+              <span>{translationMode ? '번역 숨기기' : '번역'}</span>
             </button>
           </motion.div>
         )}

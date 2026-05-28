@@ -10,6 +10,8 @@ interface PlayerState {
   isPlaying: boolean;
   playbackRate: number;
   seekToTime: number | null;
+  loopCaptionIndex: number | null;
+  loopCount: number;
 
   setVideoId: (videoId: string) => void;
   setCaptions: (captions: Caption[]) => void;
@@ -20,6 +22,8 @@ interface PlayerState {
   seekTo: (timeMs: number) => void;
   clearSeek: () => void;
   resetWatched: () => void;
+  setLoopCaption: (index: number | null) => void;
+  incrementLoopCount: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set) => ({
@@ -31,9 +35,11 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   isPlaying: false,
   playbackRate: 1,
   seekToTime: null,
+  loopCaptionIndex: null,
+  loopCount: 0,
 
   setVideoId: (videoId) =>
-    set({ videoId, currentTimeMs: 0, watchedSeconds: 0, activeCaptionIndex: -1 }),
+    set({ videoId, currentTimeMs: 0, watchedSeconds: 0, activeCaptionIndex: -1, loopCaptionIndex: null, loopCount: 0 }),
   setCaptions: (captions) => set({ captions }),
   setCurrentTimeMs: (timeMs) =>
     set((s) => {
@@ -51,4 +57,6 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   seekTo: (timeMs) => set({ seekToTime: timeMs }),
   clearSeek: () => set({ seekToTime: null }),
   resetWatched: () => set({ watchedSeconds: 0, currentTimeMs: 0 }),
+  setLoopCaption: (index) => set({ loopCaptionIndex: index, loopCount: 0 }),
+  incrementLoopCount: () => set((s) => ({ loopCount: s.loopCount + 1 })),
 }));

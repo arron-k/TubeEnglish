@@ -21,6 +21,11 @@ const YoutubePlayer = forwardRef<YoutubePlayerHandle, Props>(({ videoId }, ref) 
   const setCurrentTimeMs = usePlayerStore((s) => s.setCurrentTimeMs);
   const setIsPlaying = usePlayerStore((s) => s.setIsPlaying);
   const clearSeek = usePlayerStore((s) => s.clearSeek);
+  const loopCaptionIndex = usePlayerStore((s) => s.loopCaptionIndex);
+  const captions = usePlayerStore((s) => s.captions);
+  const incrementLoopCount = usePlayerStore((s) => s.incrementLoopCount);
+
+  const loopGuardRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
     seekTo: (timeMs: number) => {
@@ -49,7 +54,24 @@ const YoutubePlayer = forwardRef<YoutubePlayerHandle, Props>(({ videoId }, ref) 
         height="100%"
         onTimeUpdate={(e) => {
           const el = (e as unknown as { currentTarget: HTMLVideoElement }).currentTarget;
-          setCurrentTimeMs(Math.floor(el.currentTime * 1000));
+          const ms = Math.floor(el.currentTime * 1000);
+
+          if (loopCaptionIndex !== null && captions[loopCaptionIndex]) {
+            const c = captions[loopCaptionIndex];
+            const end = c.offset + c.duration;
+            if (ms < c.offset - 200 || ms >= end) {
+              if (!loopGuardRef.current) {
+                loopGuardRef.current = true;
+                el.currentTime = c.offset / 1000;
+                incrementLoopCount();
+                setCurrentTimeMs(c.offset);
+                setTimeout(() => { loopGuardRef.current = false; }, 250);
+              }
+              return;
+            }
+          }
+
+          setCurrentTimeMs(ms);
         }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}

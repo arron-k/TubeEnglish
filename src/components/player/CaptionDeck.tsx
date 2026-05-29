@@ -117,12 +117,9 @@ function TranslationArea({ caption, enabled }: { caption: Caption; enabled: bool
   );
 }
 
-function InlineAllCaptions({ captions }: { captions: Caption[] }) {
+function InlineAllCaptions({ captions, onSelect }: { captions: Caption[]; onSelect: (idx: number) => void }) {
   const [open, setOpen] = useState(false);
   const activeIndex = usePlayerStore((s) => s.activeCaptionIndex);
-  const seekTo = usePlayerStore((s) => s.seekTo);
-  const setIsPlaying = usePlayerStore((s) => s.setIsPlaying);
-  const setLoopCaption = usePlayerStore((s) => s.setLoopCaption);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
@@ -149,7 +146,7 @@ function InlineAllCaptions({ captions }: { captions: Caption[] }) {
               key={`${c.offset}-${idx}`}
               ref={(el) => { itemRefs.current[idx] = el; }}
               type="button"
-              onClick={() => { setLoopCaption(null); seekTo(c.offset); setIsPlaying(true); }}
+              onClick={() => onSelect(idx)}
               className={`block w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
                 idx === activeIndex
                   ? 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-200'
@@ -238,11 +235,9 @@ export default function CaptionDeck({ captions, onAiChat, aiChatLocked }: Props)
     if (activeIndex !== activeCaptionIndex) {
       setActiveCaptionIndex(activeIndex);
       setMatchResult(null);
-      if (micState === 'idle' || micState === 'result' || micState === 'error') {
-        reset();
-      }
+      reset();
     }
-  }, [activeIndex, activeCaptionIndex, setActiveCaptionIndex, micState, reset, setMatchResult]);
+  }, [activeIndex, activeCaptionIndex, setActiveCaptionIndex, reset, setMatchResult]);
 
   useEffect(() => {
     if (micState !== 'processing') return;
@@ -259,10 +254,11 @@ export default function CaptionDeck({ captions, onAiChat, aiChatLocked }: Props)
   const goTo = useCallback((idx: number) => {
     const c = captions[idx];
     if (!c) return;
+    if (micState === 'listening' || micState === 'processing') reset();
     setLoopCaption(null);
     seekTo(c.offset);
     setIsPlaying(true);
-  }, [captions, seekTo, setIsPlaying, setLoopCaption]);
+  }, [captions, micState, reset, seekTo, setIsPlaying, setLoopCaption]);
 
   const handlePrev = useCallback(() => {
     if (displayIndex > 0) goTo(displayIndex - 1);
@@ -273,7 +269,10 @@ export default function CaptionDeck({ captions, onAiChat, aiChatLocked }: Props)
   }, [displayIndex, captions.length, goTo]);
 
   const handleMicClick = useCallback(async () => {
-    if (micState === 'listening') return;
+    if (micState === 'listening' || micState === 'processing') {
+      reset();
+      return;
+    }
     if (micDisabled) return;
     if (permissionState === 'prompt' || permissionState === 'unknown') {
       const granted = await requestPermission();
@@ -283,7 +282,7 @@ export default function CaptionDeck({ captions, onAiChat, aiChatLocked }: Props)
     setIsPlaying(false);
     if (caption) seekTo(caption.offset);
     start();
-  }, [micState, micDisabled, permissionState, requestPermission, setMatchResult, setIsPlaying, seekTo, caption, start]);
+  }, [micState, micDisabled, permissionState, requestPermission, setMatchResult, setIsPlaying, seekTo, caption, start, reset]);
 
   const handleLoopToggle = useCallback(() => {
     if (displayIndex < 0) return;
@@ -417,7 +416,7 @@ export default function CaptionDeck({ captions, onAiChat, aiChatLocked }: Props)
           <button
             type="button"
             onClick={handleMicClick}
-            disabled={micDisabled || isProcessing}
+            disabled={micDisabled}
             className={`relative flex min-h-[40px] items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 py-2 text-xs font-semibold transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-50 ${
               isListening ? 'bg-red-500 text-white'
                 : isResultMic ? 'bg-green-500 text-white'
@@ -482,7 +481,7 @@ export default function CaptionDeck({ captions, onAiChat, aiChatLocked }: Props)
           </button>
         </div>
 
-        <InlineAllCaptions captions={captions} />
+        <InlineAllCaptions captions={captions} onSelect={goTo} />
       </motion.div>
 
       {displayIndex < captions.length - 1 && (

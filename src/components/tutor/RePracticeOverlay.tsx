@@ -105,11 +105,16 @@ export default function RePracticeOverlay() {
   }, [speechState, finalTranscript, repracticeTarget, incrementRepracticeAttempts, shouldReduceMotion]);
 
   const handleListen = useCallback(() => {
+    if (practiceState === 'listening') {
+      resetSTT();
+      setPracticeState('ready');
+      return;
+    }
     cancelTTS();
     setPracticeState('listening');
     resetSTT();
     startSTT();
-  }, [cancelTTS, resetSTT, startSTT]);
+  }, [practiceState, cancelTTS, resetSTT, startSTT]);
 
   const handleRetry = useCallback(() => {
     setMatchResult(null);

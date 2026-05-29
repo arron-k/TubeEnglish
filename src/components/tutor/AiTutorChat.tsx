@@ -184,7 +184,7 @@ export default function AiTutorChat({ videoContext, initialGreeting }: Props) {
 
   const handleVoiceToggle = () => {
     if (!isSupported) return;
-    if (speechState === 'listening') {
+    if (speechState === 'listening' || speechState === 'processing') {
       resetSTT();
       setIsVoiceMode(false);
     } else {
